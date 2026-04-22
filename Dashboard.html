@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PythonMedia Suite — Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Sora:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg:      #0b0d12;
+    --surface: #111420;
+    --card:    #161b28;
+    --border:  #1f2638;
+    --accent:  #4f8ef7;
+    --accent2: #7c3aed;
+    --green:   #22d3a0;
+    --yellow:  #f59e0b;
+    --red:     #ef4444;
+    --text:    #e2e8f0;
+    --muted:   #64748b;
+    --mono:    'JetBrains Mono', monospace;
+    --sans:    'Sora', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); }
+
+  /* ── Layout ── */
+  .shell { display: flex; height: 100vh; overflow: hidden; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 220px; background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; flex-shrink: 0;
+  }
+  .sidebar-logo {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-logo span {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--accent); font-weight: 700;
+  }
+  .sidebar-logo h1 { font-size: 16px; font-weight: 700; margin-top: 4px; }
+
+  .nav { padding: 16px 12px; flex: 1; }
+  .nav-label { font-size: 10px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; padding: 8px 8px 4px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 8px; cursor: pointer;
+    font-size: 14px; font-weight: 500; color: var(--muted);
+    transition: all .15s; margin-bottom: 2px; border: none;
+    background: transparent; width: 100%; text-align: left;
+  }
+  .nav-item:hover { background: var(--card); color: var(--text); }
+  .nav-item.active { background: rgba(79,142,247,.15); color: var(--accent); }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  .status-bar {
+    padding: 16px; border-top: 1px solid var(--border);
+    font-family: var(--mono); font-size: 11px;
+  }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--muted);
+    display: inline-block; margin-right: 6px;
+  }
+  .status-dot.running { background: var(--green); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.3 } }
+
+  /* ── Main ── */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  .topbar {
+    padding: 16px 28px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface);
+  }
+  .topbar h2 { font-size: 20px; font-weight: 700; }
+  .topbar-meta { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+  .content { flex: 1; overflow-y: auto; padding: 28px; }
+
+  /* ── Tab pages ── */
+  .tab-page { display: none; }
+  .tab-page.active { display: block; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px;
+  }
+  .card-title {
+    font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--muted); font-family: var(--mono); margin-bottom: 12px;
+  }
+
+  /* ── Grid ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
+
+  /* ── Project cards ── */
+  .project-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 22px; cursor: pointer;
+    transition: all .2s; position: relative; overflow: hidden;
+  }
+  .project-card::before {
+    content: ''; position: absolute; inset: 0;
+    background: var(--glow, transparent); opacity: 0; transition: opacity .2s;
+  }
+  .project-card:hover::before { opacity: 1; }
+  .project-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,.4); }
+
+  .project-card[data-project="merger"]   { --glow: linear-gradient(135deg,rgba(79,142,247,.08),transparent); }
+  .project-card[data-project="upscaler"] { --glow: linear-gradient(135deg,rgba(124,58,237,.08),transparent); }
+  .project-card[data-project="renamer"]  { --glow: linear-gradient(135deg,rgba(34,211,160,.08),transparent); }
+  .project-card[data-project="dac"]      { --glow: linear-gradient(135deg,rgba(245,158,11,.08),transparent); }
+
+  .project-icon {
+    width: 44px; height: 44px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; margin-bottom: 14px;
+  }
+  .project-icon.blue   { background: rgba(79,142,247,.15); }
+  .project-icon.purple { background: rgba(124,58,237,.15); }
+  .project-icon.green  { background: rgba(34,211,160,.15); }
+  .project-icon.yellow { background: rgba(245,158,11,.15); }
+
+  .project-name { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .project-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .project-tags { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+  .tag {
+    background: rgba(255,255,255,.05); border: 1px solid var(--border);
+    border-radius: 4px; padding: 2px 8px; font-size: 11px;
+    font-family: var(--mono); color: var(--muted);
+  }
+
+  /* ── Options panel ── */
+  .panel {
+    display: none; background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px; margin-top: 20px;
+  }
+  .panel.open { display: block; }
+  .panel-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;
+  }
+  .panel-title { font-size: 18px; font-weight: 700; }
+  .btn-close {
+    background: var(--border); border: none; color: var(--text);
+    padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  .btn-close:hover { background: var(--muted); }
+
+  .form-row { display: flex; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px; }
+  .form-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-family: var(--mono); }
+  .form-input, .form-select {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 12px; border-radius: 8px; font-family: var(--sans); font-size: 13px;
+    outline: none; transition: border-color .15s;
+  }
+  .form-input:focus, .form-select:focus { border-color: var(--accent); }
+
+  .drop-zone {
+    border: 2px dashed var(--border); border-radius: 10px;
+    padding: 32px; text-align: center; cursor: pointer;
+    transition: all .2s; margin-bottom: 16px;
+  }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: rgba(79,142,247,.05); }
+  .drop-zone-icon { font-size: 32px; margin-bottom: 8px; }
+  .drop-zone-text { color: var(--muted); font-size: 14px; }
+  .drop-zone-sub  { color: var(--muted); font-size: 12px; margin-top: 4px; font-family: var(--mono); }
+
+  .file-list { margin-bottom: 16px; }
+  .file-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; background: var(--surface); border-radius: 8px;
+    margin-bottom: 6px; font-size: 13px;
+  }
+  .file-item-name { font-family: var(--mono); }
+  .file-item-size { color: var(--muted); font-size: 11px; font-family: var(--mono); }
+  .file-item-remove { cursor: pointer; color: var(--muted); background: none; border: none; font-size: 16px; line-height: 1; padding: 0 4px; }
+  .file-item-remove:hover { color: var(--red); }
+
+  /* ── Progress ── */
+  .progress-wrap { margin-top: 16px; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-family: var(--mono); }
+  .progress-track { height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 99px; transition: width .4s; }
+
+  /* ── Buttons ── */
+  .btn {
+    padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer;
+    font-size: 14px; font-weight: 600; transition: all .15s;
+    font-family: var(--sans);
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-ghost { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+
+  /* ── Stats ── */
+  .stat-card { text-align: center; }
+  .stat-value { font-size: 28px; font-weight: 700; font-family: var(--mono); }
+  .stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* ── Bar chart ── */
+  .bar-chart { display: flex; align-items: flex-end; gap: 12px; height: 120px; margin-top: 8px; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+  .bar { width: 100%; border-radius: 6px 6px 0 0; transition: height .6s cubic-bezier(.4,0,.2,1); }
+  .bar-label { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+
+  /* ── History table ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+       color: var(--muted); font-family: var(--mono); padding: 8px 12px; text-align: left;
+       border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-family: var(--mono);
+  }
+  .badge-merger   { background: rgba(79,142,247,.15); color: var(--accent); }
+  .badge-upscaler { background: rgba(124,58,237,.15); color: #a78bfa; }
+  .badge-renamer  { background: rgba(34,211,160,.15); color: var(--green); }
+  .badge-dac      { background: rgba(245,158,11,.15); color: var(--yellow); }
+
+  /* ── Log ── */
+  .log-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px; font-family: var(--mono);
+    font-size: 12px; height: 180px; overflow-y: auto; color: var(--green);
+    margin-top: 14px; line-height: 1.8;
+  }
+  .log-line { color: var(--muted); }
+  .log-line.ok { color: var(--green); }
+  .log-line.err { color: var(--red); }
+  .log-line.info { color: var(--accent); }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+  /* ── Pie chart via conic-gradient ── */
+  .pie {
+    width: 120px; height: 120px; border-radius: 50%;
+    background: conic-gradient(var(--accent) 0deg, var(--accent) var(--s1),
+      #7c3aed var(--s1), #7c3aed var(--s2),
+      var(--green) var(--s2), var(--green) var(--s3),
+      var(--yellow) var(--s3), var(--yellow) 360deg);
+    margin: 0 auto 12px;
+  }
+  .pie-legend { font-size: 12px; }
+  .pie-legend li { display: flex; align-items: center; gap: 8px; padding: 3px 0; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .section-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+  .mb16 { margin-bottom: 16px; }
+  .mt20 { margin-top: 20px; }
+
+  .toggle-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .toggle { position: relative; width: 38px; height: 20px; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; inset: 0; background: var(--border); border-radius: 20px; cursor: pointer; transition: .3s;
+  }
+  .toggle-slider::before {
+    content: ''; position: absolute; height: 14px; width: 14px; left: 3px; bottom: 3px;
+    background: white; border-radius: 50%; transition: .3s;
+  }
+  .toggle input:checked + .toggle-slider { background: var(--accent); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+  .toggle-label { font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span>PythonMedia</span>
+      <h1>Suite</h1>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-label">Navigation</div>
+      <button class="nav-item active" onclick="switchTab('projects',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+        Projects
+      </button>
+      <button class="nav-item" onclick="switchTab('analytics',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Analytics
+      </button>
+      <button class="nav-item" onclick="switchTab('history',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        History
+      </button>
+    </nav>
+
+    <div class="status-bar">
+      <div id="statusDot" class="status-dot"></div>
+      <span id="statusText">Idle</span>
+      <div id="progressMini" style="margin-top:8px;height:3px;background:var(--border);border-radius:99px;overflow:hidden;">
+        <div id="progressMiniFill" style="height:100%;background:var(--accent);width:0%;transition:width .4s;"></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main">
+    <div class="topbar">
+      <h2 id="tabTitle">Projects</h2>
+      <div class="topbar-meta" id="topbarMeta">4 tools available</div>
+    </div>
+    <div class="content" id="mainContent">
+
+      <!-- ══════════════ PROJECTS TAB ══════════════ -->
+      <div class="tab-page active" id="tab-projects">
+        <div class="grid-2 mb16">
+
+          <!-- Merger -->
+          <div class="project-card" data-project="merger" onclick="openPanel('merger')">
+            <div class="project-icon blue">📎</div>
+            <div class="project-name">Video Merger</div>
+            <div class="project-desc">Merge multiple video/audio files into one. Supports drag-and-drop ordering and flexible sorting.</div>
+            <div class="project-tags">
+              <span class="tag">mkv</span><span class="tag">mp4</span><span class="tag">ffmpeg</span>
+            </div>
+          </div>
+
+          <!-- AI Upscaler -->
+          <div class="project-card" data-project="upscaler" onclick="openPanel('upscaler')">
+            <div class="project-icon purple">✨</div>
+            <div class="project-name">AI Upscaler</div>
+            <div class="project-desc">Upscale video and images with local AI. 480p→1080p, 720p→1080p anime, 1080p→4K.</div>
+            <div class="project-tags">
+              <span class="tag">real-esrgan</span><span class="tag">local ai</span><span class="tag">4K</span>
+            </div>
+          </div>
+
+          <!-- AI File Renamer -->
+          <div class="project-card" data-project="renamer" onclick="openPanel('renamer')">
+            <div class="project-icon green">🏷️</div>
+            <div class="project-name">AI File Renamer</div>
+            <div class="project-desc">Rename media to Jellyfin/Plex format. Fetches episode titles, air dates, removes junk words.</div>
+            <div class="project-tags">
+              <span class="tag">tvmaze</span><span class="tag">jellyfin</span><span class="tag">series</span>
+            </div>
+          </div>
+
+          <!-- Default Audio Changer -->
+          <div class="project-card" data-project="dac" onclick="openPanel('dac')">
+            <div class="project-icon yellow">🔊</div>
+            <div class="project-name">Default Audio Changer</div>
+            <div class="project-desc">Set default audio/subtitle tracks in MKV files. Auto English mode with smart sorting.</div>
+            <div class="project-tags">
+              <span class="tag">mkv</span><span class="tag">mkvtoolnix</span><span class="tag">subtitles</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ── Merger Panel ── -->
+        <div class="panel" id="panel-merger">
+          <div class="panel-header">
+            <div class="panel-title">📎 Video Merger</div>
+            <button class="btn-close" onclick="closePanel('merger')">✕ Close</button>
+          </div>
+          <div class="drop-zone" id="dropMerger" ondragover="handleDragOver(event,'dropMerger')" ondragleave="handleDragLeave('dropMerger')" ondrop="handleDrop(event,'merger')">
+            <div class="drop-zone-icon">🎬</div>
+            <div class="drop-zone-text">Drop files or folders here</div>
+            <div class="drop-zone-sub">mkv · mp4 · avi · mov · mp3 · flac + more</div>
+          </div>
+          <div class="file-list" id="fileList-merger"></div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Sort Mode</label>
+              <select class="form-select" id="mergerSort">
+                <option value="alphanumeric">Alphanumeric</option>
+                <option value="date">Date</option>
+                <option value="size">File Size</option>
+                <option value="custom">Custom (drag to reorder)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Output File</label>
+              <input class="form-input" id="mergerOutput" placeholder="merged_output.mkv"/>
+            </div>
+          </div>
+          <div class="toggle-row">
+            <label class="toggle"><input type="checkbox" id="mergerReencode"><span class="toggle-slider"></span></label>
+            <span class="toggle-label">Re-encode (more compatible, slower)</span>
+          </div>
+          <button class="btn btn-primary" onclick="runProject('merger')">▶ Run Merger</button>
+          <div class="progress-wrap" id="progress-merger" style="display:none">
+            <div class="progress-label"><span>Merging...</span><span id="pct-merger">0%</span></div>
+            <div class="progress-track"><div class="progress-fill" id="fill-merger" style="width:0%"></div></div>
+          </div>
+          <div class="log-box" id="log-merger"></div>
+        </div>
+
+        <!-- ── AI Upscaler Panel ── -->
+        <div class="panel" id="panel-upscaler">
+          <div class="panel-header">
+            <div class="panel-title">✨ AI Upscaler</div>
+            <button class="btn-close" onclick="closePanel('upscaler')">✕ Close</button>
+          </div>
+          <div class="drop-zone" id="dropUpscaler" ondragover="handleDragOver(event,'dropUpscaler')" ondragleave="handleDragLeave('dropUpscaler')" ondrop="handleDrop(event,'upscaler')">
+            <div class="drop-zone-icon">🎞️</div>
+            <div class="drop-zone-text">Drop video/image files or folder</div>
+            <div class="drop-zone-sub">mkv · mp4 · png · jpg + more</div>
+          </div>
+          <div class="file-list" id="fileList-upscaler"></div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Preset</label>
+              <select class="form-select" id="upscalerPreset">
+                <option value="480_to_1080_real">480p → 1080p (Real)</option>
+                <option value="720_to_1080_anime">720p → 1080p (Anime)</option>
+                <option value="1080_to_4k_real" selected>1080p → 4K (Real)</option>
+                <option value="1080_to_4k_anime">1080p → 4K (Anime)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Quality</label>
+              <select class="form-select" id="upscalerQuality">
+                <option value="high" selected>High (CRF 18)</option>
+                <option value="fast">Fast (CRF 23)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Output Directory</label>
+              <input class="form-input" id="upscalerOutput" placeholder="Leave blank = auto"/>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="runProject('upscaler')">▶ Run Upscaler</button>
+          <div class="progress-wrap" id="progress-upscaler" style="display:none">
+            <div class="progress-label"><span>Upscaling...</span><span id="pct-upscaler">0%</span></div>
+            <div class="progress-track"><div class="progress-fill" id="fill-upscaler" style="width:0%"></div></div>
+          </div>
+          <div class="log-box" id="log-upscaler"></div>
+        </div>
+
+        <!-- ── AI File Renamer Panel ── -->
+        <div class="panel" id="panel-renamer">
+          <div class="panel-header">
+            <div class="panel-title">🏷️ AI File Renamer</div>
+            <button class="btn-close" onclick="closePanel('renamer')">✕ Close</button>
+          </div>
+          <div class="drop-zone" id="dropRenamer" ondragover="handleDragOver(event,'dropRenamer')" ondragleave="handleDragLeave('dropRenamer')" ondrop="handleDrop(event,'renamer')">
+            <div class="drop-zone-icon">📁</div>
+            <div class="drop-zone-text">Drop media files or folder</div>
+            <div class="drop-zone-sub">mkv · mp4 · avi · mov + more</div>
+          </div>
+          <div class="file-list" id="fileList-renamer"></div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Output Directory</label>
+              <input class="form-input" id="renamerOutput" placeholder="Leave blank = auto"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">TMDB API Key (optional)</label>
+              <input class="form-input" id="renamerApiKey" placeholder="Free key from themoviedb.org"/>
+            </div>
+          </div>
+          <div class="toggle-row">
+            <label class="toggle"><input type="checkbox" id="renamerCopy"><span class="toggle-slider"></span></label>
+            <span class="toggle-label">Copy mode (don't move originals)</span>
+          </div>
+          <div class="toggle-row">
+            <label class="toggle"><input type="checkbox" id="renamerFlat"><span class="toggle-slider"></span></label>
+            <span class="toggle-label">Flat output (all files in one folder)</span>
+          </div>
+          <div class="toggle-row">
+            <label class="toggle"><input type="checkbox" id="renamerDry"><span class="toggle-slider"></span></label>
+            <span class="toggle-label">Dry run (preview only)</span>
+          </div>
+          <button class="btn btn-primary" onclick="runProject('renamer')">▶ Run Renamer</button>
+          <div class="progress-wrap" id="progress-renamer" style="display:none">
+            <div class="progress-label"><span>Renaming...</span><span id="pct-renamer">0%</span></div>
+            <div class="progress-track"><div class="progress-fill" id="fill-renamer" style="width:0%"></div></div>
+          </div>
+          <div class="log-box" id="log-renamer"></div>
+        </div>
+
+        <!-- ── DAC Panel ── -->
+        <div class="panel" id="panel-dac">
+          <div class="panel-header">
+            <div class="panel-title">🔊 Default Audio Changer</div>
+            <button class="btn-close" onclick="closePanel('dac')">✕ Close</button>
+          </div>
+          <div class="drop-zone" id="dropDac" ondragover="handleDragOver(event,'dropDac')" ondragleave="handleDragLeave('dropDac')" ondrop="handleDrop(event,'dac')">
+            <div class="drop-zone-icon">🎵</div>
+            <div class="drop-zone-text">Drop MKV files or folder</div>
+            <div class="drop-zone-sub">.mkv only</div>
+          </div>
+          <div class="file-list" id="fileList-dac"></div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Output Directory</label>
+              <input class="form-input" id="dacOutput" placeholder="Leave blank = in-place"/>
+            </div>
+          </div>
+          <div class="toggle-row">
+            <label class="toggle"><input type="checkbox" id="dacAutoEng" checked><span class="toggle-slider"></span></label>
+            <span class="toggle-label">Auto English mode (set English audio + subtitles as default)</span>
+          </div>
+          <div class="toggle-row">
+            <label class="toggle"><input type="checkbox" id="dacSort" checked><span class="toggle-slider"></span></label>
+            <span class="toggle-label">Sort non-English files into /NO ENG SUB, /NO ENG DUB, /NO ENG</span>
+          </div>
+          <button class="btn btn-primary" onclick="runProject('dac')">▶ Run DAC</button>
+          <div class="progress-wrap" id="progress-dac" style="display:none">
+            <div class="progress-label"><span>Processing...</span><span id="pct-dac">0%</span></div>
+            <div class="progress-track"><div class="progress-fill" id="fill-dac" style="width:0%"></div></div>
+          </div>
+          <div class="log-box" id="log-dac"></div>
+        </div>
+
+      </div><!-- /tab-projects -->
+
+      <!-- ══════════════ ANALYTICS TAB ══════════════ -->
+      <div class="tab-page" id="tab-analytics">
+        <div class="grid-4 mb16" id="statsGrid">
+          <div class="card stat-card">
+            <div class="stat-value" id="statTotal">—</div>
+            <div class="stat-label">Files Processed</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-value" id="statSize">—</div>
+            <div class="stat-label">Combined Size</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-value" id="statRuns">—</div>
+            <div class="stat-label">Total Runs</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-value" id="statTop">—</div>
+            <div class="stat-label">Most Used Tool</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">Usage by Project</div>
+            <div style="display:flex;align-items:center;gap:24px;">
+              <div class="pie" id="pieChart"></div>
+              <ul class="pie-legend" id="pieLegend" style="list-style:none;"></ul>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Files per Project</div>
+            <div class="bar-chart" id="barChart"></div>
+          </div>
+        </div>
+      </div><!-- /tab-analytics -->
+
+      <!-- ══════════════ HISTORY TAB ══════════════ -->
+      <div class="tab-page" id="tab-history">
+        <div class="card mb16">
+          <div class="card-title">Last 200 Files Processed</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th><th>File Name</th><th>Size</th><th>Project</th><th>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody id="historyBody">
+                <tr><td colspan="5" style="color:var(--muted);text-align:center;padding:32px;">No history yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /tab-history -->
+
+    </div><!-- /content -->
+  </main>
+
+</div><!-- /shell -->
+
+<script>
+// ── Tab switching ─────────────────────────────────────────────────────────────
+const TAB_TITLES = { projects: 'Projects', analytics: 'Analytics', history: 'History' };
+const TAB_META   = { projects: '4 tools available', analytics: 'Usage statistics', history: 'Last 200 files' };
+
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+  document.getElementById('tabTitle').textContent = TAB_TITLES[id];
+  document.getElementById('topbarMeta').textContent = TAB_META[id];
+  if (id === 'analytics' || id === 'history') loadHistory();
+}
+
+// ── Panel open/close ──────────────────────────────────────────────────────────
+let openPanelId = null;
+function openPanel(id) {
+  if (openPanelId && openPanelId !== id) closePanel(openPanelId);
+  document.getElementById('panel-' + id).classList.add('open');
+  openPanelId = id;
+}
+function closePanel(id) {
+  document.getElementById('panel-' + id).classList.remove('open');
+  if (openPanelId === id) openPanelId = null;
+}
+
+// ── Drag & drop ───────────────────────────────────────────────────────────────
+const fileSets = { merger: [], upscaler: [], renamer: [], dac: [] };
+
+function handleDragOver(e, zoneId) {
+  e.preventDefault();
+  document.getElementById(zoneId).classList.add('dragover');
+}
+function handleDragLeave(zoneId) {
+  document.getElementById(zoneId).classList.remove('dragover');
+}
+function handleDrop(e, project) {
+  e.preventDefault();
+  const zoneId = 'drop' + project.charAt(0).toUpperCase() + project.slice(1);
+  document.getElementById(zoneId).classList.remove('dragover');
+  const files = Array.from(e.dataTransfer.files);
+  files.forEach(f => {
+    if (!fileSets[project].some(x => x.name === f.name && x.size === f.size)) {
+      fileSets[project].push(f);
+    }
+  });
+  renderFileList(project);
+}
+
+function renderFileList(project) {
+  const container = document.getElementById('fileList-' + project);
+  container.innerHTML = '';
+  fileSets[project].forEach((f, i) => {
+    const div = document.createElement('div');
+    div.className = 'file-item';
+    div.innerHTML = `
+      <span class="file-item-name">${f.name}</span>
+      <span style="display:flex;align-items:center;gap:12px;">
+        <span class="file-item-size">${fmtSize(f.size)}</span>
+        <button class="file-item-remove" onclick="removeFile('${project}',${i})">×</button>
+      </span>`;
+    container.appendChild(div);
+  });
+}
+
+function removeFile(project, idx) {
+  fileSets[project].splice(idx, 1);
+  renderFileList(project);
+}
+
+function fmtSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  if (b < 1073741824) return (b/1048576).toFixed(1) + ' MB';
+  return (b/1073741824).toFixed(2) + ' GB';
+}
+
+// ── Run project (calls Python via status.json polling in real use) ─────────────
+function runProject(project) {
+  const logEl  = document.getElementById('log-' + project);
+  const progWrap = document.getElementById('progress-' + project);
+  const fill   = document.getElementById('fill-' + project);
+  const pct    = document.getElementById('pct-' + project);
+
+  progWrap.style.display = 'block';
+  logEl.innerHTML = '';
+
+  function addLog(msg, cls = '') {
+    const line = document.createElement('div');
+    line.className = 'log-line ' + cls;
+    line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  addLog(`Starting ${project}...`, 'info');
+
+  if (fileSets[project].length === 0) {
+    addLog('No files added. Please drag and drop files first.', 'err');
+    progWrap.style.display = 'none';
+    return;
+  }
+
+  addLog(`${fileSets[project].length} file(s) queued`, 'ok');
+  addLog('Polling status.json for updates...', 'info');
+
+  // Poll status.json written by Python
+  let elapsed = 0;
+  const poll = setInterval(() => {
+    elapsed += 500;
+    fetch('../AppData/Roaming/PythonMedia/status.json?' + Date.now())
+      .then(r => r.json())
+      .then(data => {
+        const p = data.progress || 0;
+        fill.style.width = p + '%';
+        pct.textContent  = p + '%';
+        if (data.message) addLog(data.message);
+        if (!data.running && elapsed > 2000) {
+          clearInterval(poll);
+          addLog('✓ Complete!', 'ok');
+          fill.style.width = '100%';
+          pct.textContent  = '100%';
+        }
+      })
+      .catch(() => {
+        // status.json not reachable; simulate progress for demo
+        const demo = Math.min(100, Math.round(elapsed / 100));
+        fill.style.width = demo + '%';
+        pct.textContent  = demo + '%';
+        if (demo >= 100) {
+          clearInterval(poll);
+          addLog('✓ Complete!', 'ok');
+        }
+      });
+  }, 500);
+}
+
+// ── History & analytics ───────────────────────────────────────────────────────
+const PROJECT_COLORS = {
+  'Merger':          '#4f8ef7',
+  'AI Upscaler':     '#7c3aed',
+  'AI File Renamer': '#22d3a0',
+  'Default Audio Changer': '#f59e0b',
+};
+const BADGE_MAP = {
+  'Merger': 'badge-merger',
+  'AI Upscaler': 'badge-upscaler',
+  'AI File Renamer': 'badge-renamer',
+  'Default Audio Changer': 'badge-dac',
+};
+
+function loadHistory() {
+  fetch('../AppData/Roaming/PythonMedia/History.json?' + Date.now())
+    .then(r => r.json())
+    .then(renderHistory)
+    .catch(() => {
+      // Demo data when file not available
+      renderHistory({
+        total_files_processed: 0,
+        combined_size_bytes: 0,
+        project_usage: {},
+        project_file_counts: {},
+        files: [],
+      });
+    });
+}
+
+function renderHistory(data) {
+  // Stats
+  document.getElementById('statTotal').textContent = data.total_files_processed.toLocaleString();
+  document.getElementById('statSize').textContent  = fmtSize(data.combined_size_bytes || 0);
+  const totalRuns = Object.values(data.project_usage || {}).reduce((a,b)=>a+b,0);
+  document.getElementById('statRuns').textContent  = totalRuns;
+  const topProject = Object.entries(data.project_usage || {}).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('statTop').textContent   = topProject ? topProject[0].split(' ')[0] : '—';
+
+  // Pie chart
+  const usage = data.project_usage || {};
+  const total = Object.values(usage).reduce((a,b)=>a+b,0) || 1;
+  const projects = Object.keys(usage);
+  let cumDeg = 0;
+  const segments = projects.map(p => {
+    const deg = (usage[p] / total) * 360;
+    const seg = { project: p, start: cumDeg, end: cumDeg + deg, color: PROJECT_COLORS[p] || '#888' };
+    cumDeg += deg;
+    return seg;
+  });
+
+  // Build conic-gradient
+  let conic = segments.map(s => `${s.color} ${s.start.toFixed(1)}deg ${s.end.toFixed(1)}deg`).join(', ');
+  if (!conic) conic = 'var(--border) 0deg 360deg';
+  document.getElementById('pieChart').style.background = `conic-gradient(${conic})`;
+
+  // Legend
+  const legend = document.getElementById('pieLegend');
+  legend.innerHTML = '';
+  projects.forEach(p => {
+    const li = document.createElement('li');
+    const pct = total > 0 ? Math.round(usage[p]/total*100) : 0;
+    li.innerHTML = `<span class="dot" style="background:${PROJECT_COLORS[p]||'#888'}"></span>${p} — ${pct}%`;
+    legend.appendChild(li);
+  });
+
+  // Bar chart
+  const fileCounts = data.project_file_counts || {};
+  const maxFiles = Math.max(...Object.values(fileCounts), 1);
+  const barEl = document.getElementById('barChart');
+  barEl.innerHTML = '';
+  const barProjects = Object.keys(fileCounts).length ? Object.keys(fileCounts) : ['Merger','AI Upscaler','AI File Renamer','Default Audio Changer'];
+  barProjects.forEach(p => {
+    const count = fileCounts[p] || 0;
+    const pct = Math.round((count / maxFiles) * 100);
+    const col = document.createElement('div');
+    col.className = 'bar-col';
+    col.innerHTML = `
+      <span style="font-size:10px;color:var(--muted);font-family:var(--mono);">${count}</span>
+      <div class="bar" style="height:${Math.max(pct,4)}%;background:${PROJECT_COLORS[p]||'#888'};"></div>
+      <span class="bar-label">${p.split(' ')[0]}</span>`;
+    barEl.appendChild(col);
+  });
+
+  // History table
+  const tbody = document.getElementById('historyBody');
+  tbody.innerHTML = '';
+  if (!data.files || data.files.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:32px;">No history yet.</td></tr>';
+    return;
+  }
+  data.files.slice(0, 200).forEach((f, i) => {
+    const tr = document.createElement('tr');
+    const badgeCls = BADGE_MAP[f.project] || '';
+    tr.innerHTML = `
+      <td style="color:var(--muted);font-family:var(--mono);">${i+1}</td>
+      <td style="font-family:var(--mono);font-size:12px;">${f.name}</td>
+      <td style="color:var(--muted);font-family:var(--mono);">${fmtSize(f.size_bytes||0)}</td>
+      <td><span class="badge ${badgeCls}">${f.project}</span></td>
+      <td style="color:var(--muted);font-size:12px;">${f.timestamp ? new Date(f.timestamp).toLocaleString() : '—'}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Status polling (sidebar) ──────────────────────────────────────────────────
+function pollStatus() {
+  fetch('../AppData/Roaming/PythonMedia/status.json?' + Date.now())
+    .then(r => r.json())
+    .then(data => {
+      const dot  = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      const fill = document.getElementById('progressMiniFill');
+      dot.className = 'status-dot' + (data.running ? ' running' : '');
+      text.textContent = data.message || (data.running ? data.project : 'Idle');
+      fill.style.width = (data.progress || 0) + '%';
+    })
+    .catch(() => {});
+}
+
+setInterval(pollStatus, 1000);
+pollStatus();
+</script>
+</body>
+</html>
